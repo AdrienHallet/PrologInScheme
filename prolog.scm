@@ -82,35 +82,59 @@
   ;; There must be no existing bindings for var.
   (cons (cons var value) bindings))
 
+(define (get-binding var bindings)
+	(assoc var bindings))
+
 ;; =============================================================================
 ;; UNIFICATION
-
+(define no-bindings '((#t . #t)))
 (define (unify t1 t2 bindings)
-  (cond ((eq? bindings #f) #f)
+  (cond ((equal? bindings '()) '())
         ((equal? t1 t2) bindings)
         ((var? t1) (unify-variable t1 t2 bindings))
         ((var? t2) (unify-variable t2 t1 bindings))
         ((and (pair? t1) (pair? t2))
          (unify (cdr t1) (cdr t2)
-                (unify (car t1) (car t2) bindings)))
-        (#t #f)))
+                (unify (first t1) (first t2) bindings)))
+        (else '())))
 
-(define (unify-variable var x bindings)
+(define (unify-variable var t1 bindings)
   (cond ((get-binding var bindings)
-         (unify (lookup var bindings) x bindings))
-        ((and (var? x) (get-binding x bindings))
-         (unify var (lookup x bindings) bindings))
-        ((and #t (occurs-check var x bindings))
-         #f)
-        (#t (extend-bindings var x bindings))))
+         (unify (lookup var bindings) t1 bindings))
+        ((and (var? t1) (get-binding t1 bindings))
+         (unify var (lookup t1 bindings) bindings))
+        ((and #t (occurs-check var t1 bindings))
+         '())
+        (else (extend-bindings var t1 bindings))))
 
-(define (occurs-check var x bindings)
-  (cond ((eq? var x) #t)
-        ((and (var? x) (get-binding x bindings))
-         (occurs-check var (lookup x bindings) bindings))
-        ((pair? x) (or (occurs-check var (car x) bindings)
-                       (occurs-check var (cdr x) bindings)))
-        (#t '())))
+(define (occurs-check var t1 bindings)
+  (cond ((equal? var t1) #t)
+        ((and (var? t1) (get-binding t1 bindings))
+         (#t var (lookup t1 bindings) bindings))
+        ((pair? t1) (or (occurs-check var (first t1) bindings)
+                       (occurs-check var (cdr t1) bindings)))
+        (else #f)))
+
+(define (subst-bindings bindings t1)
+  (cond ((equal? bindings '()) '())
+        ((equal? bindings no-bindings) t1)
+        ((and (var? t1) (get-binding t1 bindings))
+         (subst-bindings bindings (lookup t1 bindings)))
+        ((not (pair? t1)) t1)
+        (else (reuse-cons (subst-bindings bindings (car t1))
+                          (subst-bindings bindings (cdr t1))
+                          t1))))
+
+(define (extend-bindings var val bindings)
+  (cons (cons var val)
+        (if (equal? bindings no-bindings)
+            '()
+            bindings)))
+
+(define (reuse-cons x y x-y)
+  (if (and (equal? x (car x-y)) (equal? y (cdr x-y)))
+      x-y
+      (cons x y)))
 
 ;; =============================================================================
 ;; SATISFACTION
@@ -208,22 +232,22 @@
 
 (<- (father albert barnaby))
 (<- (father albert babar))
- 
+
 (<- (mother anna   barnaby))
 (<- (mother anna   babar))
- 
+
 (<- (father alain  bob))
 (<- (father alain  ben))
- 
+
 (<- (mother alice  bob))
 (<- (mother alice  ben))
- 
+
 (<- (father ben    carla))
 (<- (mother carla  dany))
- 
+
 (<- (parent Parent Child) (father Parent Child))
 (<- (parent Parent Child) (mother Parent Child))
- 
+
 (<- (ancestor X Z) (parent X Z))
 (<- (ancestor X Z) (parent X Y) (ancestor Y Z))
 
