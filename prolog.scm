@@ -86,9 +86,31 @@
 ;; UNIFICATION
 
 (define (unify t1 t2 bindings)
-  ;; Returns new bindings that unify the two terms.
-  '()
-  #| TODO |#)
+  (cond ((eq? bindings #f) #f)
+        ((equal? t1 t2) bindings)
+        ((var? t1) (unify-variable t1 t2 bindings))
+        ((var? t2) (unify-variable t2 t1 bindings))
+        ((and (pair? t1) (pair? t2))
+         (unify (cdr t1) (cdr t2)
+                (unify (car t1) (car t2) bindings)))
+        (#t #f)))
+
+(define (unify-variable var x bindings)
+  (cond ((get-binding var bindings)
+         (unify (lookup var bindings) x bindings))
+        ((and (var? x) (get-binding x bindings))
+         (unify var (lookup x bindings) bindings))
+        ((and #t (occurs-check var x bindings))
+         #f)
+        (#t (extend-bindings var x bindings))))
+
+(define (occurs-check var x bindings)
+  (cond ((eq? var x) #t)
+        ((and (var? x) (get-binding x bindings))
+         (occurs-check var (lookup x bindings) bindings))
+        ((pair? x) (or (occurs-check var (car x) bindings)
+                       (occurs-check var (cdr x) bindings)))
+        (#t '())))
 
 ;; =============================================================================
 ;; SATISFACTION
