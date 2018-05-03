@@ -135,7 +135,7 @@
        [(lookup t bindings)
         => (lambda (binding) (unify var (cdr binding) bindings))]
        [else (add-binding var t bindings)])]
-    [(and #t (occurs-check var t bindings))
+    [(occurs-check var t bindings)
      #f]
     [else
      (add-binding var t bindings)]))
@@ -299,17 +299,17 @@
        (if (not bindings) #f
             bindings)))))
 
-(define (search-loop bindings)
-    (prove-all `(,@bindings (show-prolog-vars ,@(variables-in bindings))) '() ))
-
 (define-syntax ?-
   ;; Macro rule for querying. Pass one or more goals.
   (syntax-rules ()
     ((_ . goals0)
     (let* ((_              (read-char)) ;; swallow first newline
-           (goals          `goals0))
+          (goals          `goals0)
+          (scoped-goals   (map (lambda (x) (cons x 0)) goals))
+          (rules          (rules-for (car goals))))
+          ;(bindings       (satisfy #| TODO |# '())))
       (if (not goals) #f
-          (search-loop goals))))))
+          (prove-all `(,@goals (show-prolog-vars ,@(variables-in goals))) '() ))))))
 
 ;; =============================================================================
 ;; SAMPLE DATA
