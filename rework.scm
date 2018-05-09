@@ -135,10 +135,10 @@
         (if (occurs-check var val bindings)				;; Check circular unifications
           (add-binding var val bindings)				;; Add the binding
           #f)											;; False
-      (unify (cdr exist)							;; It is 
+      (unify (cdr exist)							;; It is
       val											;; Unify the existing with the val
       bindings)))))
-          
+
 (define (occurs-check var exp bindings)
 ;; Check that var exists in the expression
   (cond
@@ -151,7 +151,7 @@
     ((occurs-check var (car exp) bindings) 		;; Was a pair (or more)
     	(occurs-check var (cdr exp) bindings))		;; Therefore check inside
     (else #f)))									;; Found nothing, thus #f
-    
+
 ;; =============================================================================
 ;; (I can't get no ...)
 ;; SATISFACTION
@@ -166,17 +166,17 @@
 
 (define (unique-find-anywhere-if predicate tree found-so-far)
 ;; Find occurences of predicate in the tree
-  (if (pair? tree)									;; Is a branch
+  (if (pair? tree)									            ;; Is a branch
       (unique-find-anywhere-if predicate				;; Recursion
-           (car tree)									;; on first leaf
-           (unique-find-anywhere-if predicate			
-                                    (cdr tree)			;; on the rest
+           (car tree)									          ;; on first leaf
+           (unique-find-anywhere-if predicate
+                                    (cdr tree)	;; on the rest
                                     found-so-far))		;; Remember the past
       (if (predicate tree)							;;Is a leaf
-          (if (memq tree found-so-far)					;; Already in store
+          (if (memq tree found-so-far)		;; Already in store
               found-so-far									;; Return the list
-              (cons tree found-so-far))					;; New leaf, add it
-          found-so-far)))									;; Return the list
+              (cons tree found-so-far))		;; New leaf, add it
+          found-so-far)))									  ;; Return the list
 
 (define (variables-in exp)
 ;; Find all the variables in the expression
@@ -225,10 +225,13 @@
    (if (null? remain)
        #f ;; End of search
        (let* ((new-clause (rename-variables (car remain))) ;; clauses are var-renamed
+              ;; try to prove at this level
               (test (prove-all (append (cdr new-clause) scoped-goals)
                                (unify goal (car new-clause) bindings))))
-         (if (eq? #f test)
+         (if (eq? #f test) ;; if we could not Prove
+           ;; try on the rest
              (search-loop goal clauses bindings scoped-goals (cdr remain))
+           ;; we found it
              test))))
 
 (define (satisfy goal bindings scope-goals)
