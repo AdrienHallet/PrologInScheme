@@ -50,6 +50,12 @@
 ;; This work has been done alongside the reading of Peter Norvig's
 ;; "Paradigms or Artificial Intelligence Programming" (chapter 11) which was a
 ;; great help in the understanding of this project and its goals.
+;;
+;; Concepts and principles present in our code are based on
+;; the above book by Peter Norvig.
+;; Although it provides a similar solution to the given problem,
+;; we used it as a theoretical reference to help us build
+;; a solution fitting the language and the context
 
 (import
   (srfi 27 random-bits)
@@ -61,19 +67,26 @@
 ;; DATA STRUCTURES
 
 (define (printer vars bindings)
+;; Pretty print to display bindings
   (display "(")
   (for-each
-    (lambda (var) (subprint var (subst-var var bindings)))
+    (lambda (var) (subprint var (subst-var bindings var)))
    vars)
   (display ")")
 )
 (define (subprint var val)
+;; Helper for one (var val) pair
   (display "(")
   (display var)
   (display " ")
   (display val)
   (display ")")
 )
+
+(define (mapCons function arg construct)
+;; Behaves like map, but on a pair
+	(cons (function arg (car construct))
+			(function arg (cdr construct))))
 
 (define (predicate goal)
   ;; From a goal, returns a predicate: a (<name> . <arity>) pair.
@@ -115,48 +128,74 @@
 (define (unify t1 t2 bindings)
   ;; Returns new bindings that unify the two terms.
   (cond
-    ((eq? bindings #f) #f)						;; End of unify
-    ((eq? t1 t2) bindings)						;; No need to pursue (equal variables)
-    ((var? t1) (unify-variable t1 t2 bindings)) ;; Recursion on t1
-    ((var? t2) (unify-variable t2 t1 bindings)) ;; Recursion on t2
-    ((and (pair? t1) (pair? t2))				;; If nested values
-     (unify (cdr t1)								;; Go inside t1
-            (cdr t2)								;; Go inside t2
-            (unify (car t1) (car t2) bindings)))	;; Pursue nested unification
-    ((equal? t1 t2) bindings)					;; No need to pursue (equal values)
-    (else #f)))									;; We failed
+    ((eq? bindings #f) #f)						
+    ;; End of unify
+    ((eq? t1 t2) bindings)						
+    ;; No need to pursue (equal variables)
+    ((var? t1) (unify-variable t1 t2 bindings)) 
+    ;; Recursion on t1
+    ((var? t2) (unify-variable t2 t1 bindings)) 
+    ;; Recursion on t2
+    ((and (pair? t1) (pair? t2))				
+    ;; If nested values
+     (unify (cdr t1)								
+     		;; Go inside t1
+            (cdr t2)								
+            ;; Go inside t2
+            (unify (car t1) (car t2) bindings)))	
+            ;; Pursue nested unification
+    ((equal? t1 t2) bindings)					
+    ;; No need to pursue (equal values)
+    (else #f)))									
+    ;; We failed
 
 (define (unify-variable var val bindings)
 ;; Unify a variable in the bindings
   (if (equal? var val)
-    bindings 									;; Var is val, no need to bind
-    (let ((exist (lookup var bindings))) 		;; Check if contained
-      (if (not exist)								;; It is not
-        (if (occurs-check var val bindings)				;; Check circular unifications
-          (add-binding var val bindings)				;; Add the binding
-          #f)											;; False
-      (unify (cdr exist)							;; It is
-      val											;; Unify the existing with the val
+    bindings 									
+    ;; Var is val, no need to bind
+    (let ((exist (lookup var bindings))) 		
+    ;; Check if contained
+      (if (not exist)								
+      ;; It is not
+        (if (occurs-check var val bindings)				
+        ;; Check circular unifications
+          (add-binding var val bindings)				
+          ;; Add the binding
+          #f)											
+          ;; False
+      (unify (cdr exist)							
+      ;; It is
+      val											
+      ;; Unify the existing with the val
       bindings)))))
 
 (define (occurs-check var exp bindings)
 ;; Check that var exists in the expression
   (cond
-    ((not (pair? exp)) #t)						;; Exp is not a pair
-      ((var? exp)									;; Exp is a var
-      (if (equal? var exp) #f						;; Our var is the exp
-      (let ((exist (lookup exp bindings)))			;; Check if exists
-        (if (not exist) #t								;; It does not, good
-            (occurs-check var (cdr exist) bindings))))) ;; It does, check it
-    ((occurs-check var (car exp) bindings) 		;; Was a pair (or more)
-    	(occurs-check var (cdr exp) bindings))		;; Therefore check inside
-    (else #f)))									;; Found nothing, thus #f
+    ((not (pair? exp)) #t)						
+    ;; Exp is not a pair
+      ((var? exp)									
+      ;; Exp is a var
+      (if (equal? var exp) #f						
+      ;; Our var is the exp
+      (let ((exist (lookup exp bindings)))			
+      ;; Check if exists
+        (if (not exist) #t								
+        ;; It does not, good
+            (occurs-check var (cdr exist) bindings))))) 
+            ;; It does, check it
+    ((occurs-check var (car exp) bindings) 		
+    ;; Was a pair (or more)
+    	(occurs-check var (cdr exp) bindings))		
+    	;; Therefore check inside
+    (else #f)))									
+    ;; Found nothing, thus #f
 
 ;; =============================================================================
 ;; (I can't get no ...)
 ;; SATISFACTION
 
-;;
 (define (continue?)
 ;; Ask user input if we continue
  (case (read-char)
@@ -166,17 +205,27 @@
 
 (define (unique-find-anywhere-if predicate tree found-so-far)
 ;; Find occurences of predicate in the tree
-  (if (pair? tree)									            ;; Is a branch
-      (unique-find-anywhere-if predicate				;; Recursion
-           (car tree)									          ;; on first leaf
+  (if (pair? tree)									            
+  ;; Is a branch
+      (unique-find-anywhere-if predicate				
+      ;; Recursion
+           (car tree)									          
+           ;; on first leaf
            (unique-find-anywhere-if predicate
-                                    (cdr tree)	;; on the rest
-                                    found-so-far))		;; Remember the past
-      (if (predicate tree)							;;Is a leaf
-          (if (memq tree found-so-far)		;; Already in store
-              found-so-far									;; Return the list
-              (cons tree found-so-far))		;; New leaf, add it
-          found-so-far)))									  ;; Return the list
+                                    (cdr tree)	
+                                    ;; on the rest
+                                    found-so-far))		
+                                    ;; Remember the past
+      (if (predicate tree)							
+      ;;Is a leaf
+          (if (memq tree found-so-far)		
+          ;; Already in store
+              found-so-far									
+              ;; Return the list
+              (cons tree found-so-far))		
+              ;; New leaf, add it
+          found-so-far)))									  
+          ;; Return the list
 
 (define (variables-in exp)
 ;; Find all the variables in the expression
@@ -185,10 +234,10 @@
 (define (show-prolog-vars vars bindings scoped-goals)
 ;; Printer callback, when one SAT is over
  (if (null? vars)
-     (display "()") 			;; Nothing to print (SAT request)
-     (printer vars bindings)) 	;; Print the answers
- (if (continue?)				;; User wants more ?
-      #f 						;; Backtrack
+     (display "()") ;; Nothing to print (SAT request)
+     (printer vars bindings)) ;; Print the answers
+ (if (continue?) ;; User wants more ?
+      #f ;; Backtrack
      (prove-all scoped-goals bindings))) ;; Finish
 
 (hashtable-update! db 'show-prolog-vars (lambda (x) show-prolog-vars) '())
@@ -197,22 +246,29 @@
 (define (prove-all goals bindings)
 ;; Check parameters
  (cond
-   ((eq? bindings #f)			;; Can't prove if nothing to bind
+   ((eq? bindings #f)			
+   ;; Can't prove if nothing to bind
     #f)
-   ((null? goals)				;; Nothing to check if no goal
+   ((null? goals)				
+   ;; Nothing to check if no goal
     bindings)
-   (else						;; We can work, so do it
+   (else						
+   ;; We can work, so do it
     (satisfy (car goals) bindings (cdr goals)))))
 
 (define (sublis bindings tree)
 ;; Search for bindings in the tree
- (if (pair? tree)						 ;; tree is a branch
-     (cons (sublis bindings (car tree))  ;; explore first
-           (sublis bindings (cdr tree))) ;; explore rest
-     (cond							     ;; tree is a leaf
-       ((assq tree bindings)			 ;; if tree in bindings
-        => (lambda (binding) (cdr binding))) ;; get from index to end
-       (else tree))))					 ;; tree not in bindings
+ (if (pair? tree)						 
+ ;; tree is a branch
+	(mapCons sublis bindings tree)
+	;; tree is a leaf
+     (cond							     
+       ((assq tree bindings)			 
+       ;; if tree in bindings
+        => (lambda (binding) (cdr binding))) 
+        ;; get from index to end
+       (else tree))))					 
+       ;; tree not in bindings
 
 (define (rename-variables x)
 ;; Replace variables by (hopefully) unique names to allow scope detection
@@ -224,14 +280,18 @@
 ;; Loop to find the goals
    (if (null? remain)
        #f ;; End of search
-       (let* ((new-clause (rename-variables (car remain))) ;; clauses are var-renamed
-              ;; try to prove at this level
-              (test (prove-all (append (cdr new-clause) scoped-goals)
-                               (unify goal (car new-clause) bindings))))
-         (if (eq? #f test) ;; if we could not Prove
-           ;; try on the rest
+       (let* ((new-clause (rename-variables (car remain))) 
+       			;; var-rename clauses
+       		  (sub-goals (append (cdr new-clause) scoped-goals))
+       		    ;; get scoped goals ready to bind
+       		  (sub-bindings (unify goal (car new-clause) bindings))
+       		    ;; unify scoped goals
+              (test (prove-all sub-goals sub-bindings)))
+              	;; try to go deeper
+         (if (eq? #f test)
+         	;; Cannot go deeper, continue
              (search-loop goal clauses bindings scoped-goals (cdr remain))
-           ;; we found it
+            ;; We could, return
              test))))
 
 (define (satisfy goal bindings scope-goals)
@@ -255,21 +315,20 @@
       (string-append var
         (number->string (random-integer 100000000))))))
 
-(define (subst-var var bindings)
+(define (subst-var bindings var)
   (cond
     ((eq? bindings #f) #f)
     ((eq? bindings '()) var)
     ((and (var? var) (lookup var bindings))
-     => (lambda (binding) (subst-var (cdr binding) bindings)))
+     => (lambda (binding) (subst-var bindings (cdr binding))))
     ((pair? var)
-     (cons (subst-var (car var) bindings )
-           (subst-var (cdr var) bindings)))
+     	(mapCons subst-var bindings var))
     (else var)))
 
 (define (subst-vars x scope bindings)
   ;; Returns the value corresponding to the given item (a variable, pair or
   ;; another value) after recursively substituting any variable within it.
-  (cond ((var? x)   (subst-var (cons x scope) bindings))
+  (cond ((var? x)   (subst-var bindings (cons x scope)))
         ((pair? x)  (cons (subst-vars (car x) scope bindings)
                           (subst-vars (cdr x) scope bindings)))
         (else       x)))
@@ -280,7 +339,7 @@
   (define top-pairs (filter (lambda (pair) (eqv? (cdar pair) 0)) bindings))
   (define top-vars  (map (lambda (pair) (car pair)) top-pairs))
   (define names     (map (lambda (var) (car var)) top-vars))
-  (define values    (map (lambda (var) (subst-var var bindings)) top-vars))
+  (define values    (map (lambda (var) (subst-va bindings var)) top-vars))
   (zip names values))
 
 ;; =============================================================================
